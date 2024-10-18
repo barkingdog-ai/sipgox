@@ -99,7 +99,7 @@ func main() {
 		dialog.Hangup(ctx)
 		return
 
-	case <-dialog.Done():
+	case <-dialog.Context().Done():
 		return
 	}
 }
