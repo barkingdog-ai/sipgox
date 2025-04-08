@@ -2,7 +2,7 @@
 
 is experimental/extra area to add more functionality on top [sipgo lib](https://github.com/emiago/sipgo), more specifically, to fill gap for building user agents with media. This allows much more easier voip testing or faster way to create UAC/UAS.
 
-To find out more, read also article about [E2E testing](https://github.com/emiago/sipgo/wiki/E2E-testing) and check [GO Documentation](https://pkg.go.dev/github.com/emiago/sipgox)
+To find out more, read also article about [E2E testing](https://github.com/emiago/sipgo/wiki/E2E-testing) and check [GO Documentation](https://pkg.go.dev/github.com/barkingdog-ai/sipgox)
 
 **NOTE**: [Media package (github.com/emiago/media)](https://github.com/emiago/media) is now seperate repo.
 

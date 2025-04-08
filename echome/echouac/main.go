@@ -11,7 +11,7 @@ import (
 	"github.com/emiago/media"
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
-	"github.com/emiago/sipgox"
+	"github.com/barkingdog-ai/sipgox"
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

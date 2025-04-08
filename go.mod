@@ -1,4 +1,4 @@
-module github.com/emiago/sipgox
+module github.com/barkingdog-ai/sipgox
 
 go 1.21
 
