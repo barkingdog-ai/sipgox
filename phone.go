@@ -819,6 +819,7 @@ var (
 
 type AnswerReadyCtxValue chan struct{}
 type AnswerOptions struct {
+	Expiry     int // 註冊過期時間 2025-03-18 Jacksu
 	Ringtime   time.Duration
 	SipHeaders []sip.Header
 
@@ -929,11 +930,14 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 			Port: rport,
 			User: p.UA.Name(),
 		}
+		if opts.Expiry == 0 {
+			opts.Expiry = 600 // 註冊過期時間 2025-03-18 Jacksu
+		}
 
 		regTr, err := p.register(ctx, client, registerURI, contactHdr, RegisterOptions{
 			Username: opts.Username,
 			Password: opts.Password,
-			Expiry:   30,
+			Expiry:   opts.Expiry, // 註冊過期時間 2025-03-18 Jacksu
 			// UnregisterAll: true,
 			// AllowHeaders: server.RegisteredMethods(),
 		})
