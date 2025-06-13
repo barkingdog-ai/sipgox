@@ -758,6 +758,14 @@ func (p *Phone) dialWaitAnswer(ctx context.Context, dialog *sipgo.DialogClientSe
 	err := dialog.WaitAnswer(ctx, sipgo.AnswerOptions{
 		OnResponse: func(res *sip.Response) error {
 			p.logSipResponse(&log, res)
+			// 如果是 100 Trying，記錄但不視為錯誤
+			if res.StatusCode == sip.StatusTrying {
+				log.Info().
+					Int("status", int(res.StatusCode)).
+					Str("reason", res.Reason).
+					Msg("通話請求正在處理中")
+				return nil
+			}
 			if o.OnResponse != nil {
 				o.OnResponse(res)
 			}
@@ -769,6 +777,14 @@ func (p *Phone) dialWaitAnswer(ctx context.Context, dialog *sipgo.DialogClientSe
 
 	var rerr *sipgo.ErrDialogResponse
 	if errors.As(err, &rerr) {
+		// 如果是 100 Trying，不視為錯誤
+		if rerr.Res.StatusCode == sip.StatusTrying {
+			log.Info().
+				Int("status", int(rerr.Res.StatusCode)).
+				Str("reason", rerr.Res.Reason).
+				Msg("通話請求正在處理中")
+			return nil, nil
+		}
 		return nil, &DialResponseError{
 			InviteReq:  invite,
 			InviteResp: rerr.Res,
