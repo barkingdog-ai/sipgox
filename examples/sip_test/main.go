@@ -35,14 +35,21 @@ func main() {
 	}
 
 	// 註冊到 SIP 伺服器
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	err = phone.Register(ctx, serverURI, sipgox.RegisterOptions{
 		Username: "1001",     // 請替換成你的使用者名稱
 		Password: "test1001", // 請替換成你的密碼
 		Expiry:   3600,       // 註冊有效期（秒）
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msg("註冊失敗")
+		if err == context.DeadlineExceeded {
+			log.Error().Msg("註冊超時，請檢查網路連線和伺服器狀態")
+		} else {
+			log.Error().Err(err).Msg("註冊失敗")
+		}
+		return
 	}
 	log.Info().Msg("成功註冊到 SIP 伺服器")
 
