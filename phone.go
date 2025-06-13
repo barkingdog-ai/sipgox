@@ -471,7 +471,7 @@ func (p *Phone) Dial(dialCtx context.Context, recipient sip.Uri, o DialOptions) 
 	}
 
 	// Setup dialog client
-	dc := sipgo.NewDialogClient(client, contactHDR)
+	dc := sipgo.NewDialogClientCache(client, contactHDR)
 
 	server.OnBye(func(req *sip.Request, tx sip.ServerTransaction) {
 		if err := dc.ReadBye(req, tx); err != nil {
@@ -496,18 +496,82 @@ func (p *Phone) Dial(dialCtx context.Context, recipient sip.Uri, o DialOptions) 
 		var dialog *sipgo.DialogClientSession
 		var newDialog *DialogClientSession
 		var err error
+
+		parseRefer := func(req *sip.Request, tx sip.ServerTransaction, referUri *sip.Uri) (*sipgo.DialogClientSession, error) {
+			dt, err := dc.MatchRequestDialog(req)
+			if err != nil {
+				return nil, err
+			}
+
+			cseq := req.CSeq().SeqNo
+			if cseq <= dt.CSEQ() {
+				return nil, sipgo.ErrDialogOutsideDialog
+			}
+
+			referToHdr := req.GetHeader("Refer-to")
+			if referToHdr == nil {
+				return nil, fmt.Errorf("no Refer-to header present")
+			}
+
+			if err := sip.ParseUri(referToHdr.Value(), referUri); err != nil {
+				return nil, err
+			}
+
+			res := sip.NewResponseFromRequest(req, 202, "Accepted", nil)
+			if err := tx.Respond(res); err != nil {
+				return nil, err
+			}
+
+			// Now dialog should do invite
+			// And implicit subscription should be done
+			// invite := sip.NewRequest(sip.INVITE, *referUri)
+			// invite.SetBody(dt.InviteRequest.Body())
+			// invite
+
+			// // dt.TransactionRequest(context.TODO(), invite)
+			// c.WriteInvite(context.TODO(), invite)
+
+			return dt, nil
+
+			// Dial until current dialog is canceled. Therefore we pass dt.Context
+			// ctx, cancel := context.WithTimeout(dt.Context(), 30*time.Second)
+			// defer cancel()
+
+			// c.Invite(ctx, referUri)
+
+			// dt.setState(sip.DialogStateEnded)
+
+			// res := sip.NewResponseFromRequest(req, 200, "OK", nil)
+			// if err := tx.Respond(res); err != nil {
+			// 	return err
+			// }
+			// defer dt.Close()              // Delete our dialog always
+			// defer dt.inviteTx.Terminate() // Terminates Invite transaction
+
+			// // select {
+			// // case <-tx.Done():
+			// // 	return tx.Err()
+			// // }
+			// return nil
+		}
+
 		// TODO refactor this
 		refer := func() error {
 			referUri := sip.Uri{}
-			dialog, err = dc.ReadRefer(req, tx, &referUri)
+			dialog, err = parseRefer(req, tx, &referUri)
 			if err != nil {
 				return err
 			}
 
 			// Setup session
-			rtpIp := p.UA.GetIP()
+			var rtpIp net.IP
 			if lip := net.ParseIP(host); lip != nil && !lip.IsUnspecified() {
 				rtpIp = lip
+			} else {
+				rtpIp, _, err = sip.ResolveInterfacesIP("ip4", nil)
+				if err != nil {
+					return err
+				}
 			}
 			msess, err := media.NewMediaSession(&net.UDPAddr{IP: rtpIp, Port: 0})
 			if err != nil {
@@ -634,9 +698,14 @@ func (p *Phone) Dial(dialCtx context.Context, recipient sip.Uri, o DialOptions) 
 	// }
 
 	// Setup session
-	rtpIp := p.UA.GetIP()
+	var rtpIp net.IP
 	if lip := net.ParseIP(host); lip != nil && !lip.IsUnspecified() {
 		rtpIp = lip
+	} else {
+		rtpIp, _, err = sip.ResolveInterfacesIP("ip4", nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 	msess, err := media.NewMediaSession(&net.UDPAddr{IP: rtpIp, Port: 0})
 	if err != nil {
@@ -671,7 +740,7 @@ func (p *Phone) Dial(dialCtx context.Context, recipient sip.Uri, o DialOptions) 
 	return dialog, nil
 }
 
-func (p *Phone) dial(ctx context.Context, dc *sipgo.DialogClient, invite *sip.Request, msess *media.MediaSession, o DialOptions) (*DialogClientSession, error) {
+func (p *Phone) dial(ctx context.Context, dc *sipgo.DialogClientCache, invite *sip.Request, msess *media.MediaSession, o DialOptions) (*DialogClientSession, error) {
 	log := p.getLoggerCtx(ctx, "Dial")
 	dialog, err := dc.WriteInvite(ctx, invite)
 	if err != nil {
@@ -750,6 +819,7 @@ var (
 
 type AnswerReadyCtxValue chan struct{}
 type AnswerOptions struct {
+	Expiry     int // 註冊過期時間 2025-03-18 Jacksu
 	Ringtime   time.Duration
 	SipHeaders []sip.Header
 
@@ -860,11 +930,14 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 			Port: rport,
 			User: p.UA.Name(),
 		}
+		if opts.Expiry == 0 {
+			opts.Expiry = 600 // 註冊過期時間 2025-03-18 Jacksu
+		}
 
 		regTr, err := p.register(ctx, client, registerURI, contactHdr, RegisterOptions{
 			Username: opts.Username,
 			Password: opts.Password,
-			Expiry:   30,
+			Expiry:   opts.Expiry, // 註冊過期時間 2025-03-18 Jacksu
 			// UnregisterAll: true,
 			// AllowHeaders: server.RegisteredMethods(),
 		})
@@ -894,7 +967,7 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 		}(ctx)
 	}
 
-	ds := sipgo.NewDialogServer(client, contactHdr)
+	ds := sipgo.NewDialogServerCache(client, contactHdr)
 	var chal *digest.Challenge
 	server.OnInvite(func(req *sip.Request, tx sip.ServerTransaction) {
 		if d != nil {
@@ -1075,10 +1148,8 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 				p.logSipResponse(&log, res)
 
 				select {
-				case <-tx.Cancels():
-					return fmt.Errorf("received CANCEL")
 				case <-tx.Done():
-					return fmt.Errorf("invite transaction finished while ringing")
+					return fmt.Errorf("invite transaction finished while ringing: %w", tx.Err())
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-time.After(ringtime):
@@ -1099,10 +1170,14 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 				return fmt.Errorf("no SDP in INVITE provided")
 			}
 
-			ip := p.UA.GetIP()
-			// rtpPort := rand.Intn(1000*2)/2 + 6000
+			var ip net.IP
 			if lip := net.ParseIP(lhost); lip != nil && !lip.IsUnspecified() {
 				ip = lip
+			} else {
+				ip, _, err = sip.ResolveInterfacesIP("ip4", nil)
+				if err != nil {
+					return err
+				}
 			}
 
 			msess, err := media.NewMediaSession(&net.UDPAddr{IP: ip, Port: 0})

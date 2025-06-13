@@ -4,9 +4,7 @@ is experimental/extra area to add more functionality on top [sipgo lib](https://
 
 To find out more check [GO Documentation](https://pkg.go.dev/github.com/emiago/sipgox)
 
----
-**NOTE**: All media and phone development is moved to [diago lib](https://github.com/emiago/diago) project. Diago offers more correct way of building phones or servers.
-Please do not use this. This repo will keep focus only SIP extra things in future, and it will probably remove phone feature.
+To find out more, read also article about [E2E testing](https://github.com/emiago/sipgo/wiki/E2E-testing) and check [GO Documentation](https://pkg.go.dev/github.com/emiago/sipgox)
 
 ---
 

@@ -11,7 +11,7 @@ import (
 	"github.com/emiago/media"
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
-	"github.com/emiago/sipgox"
+	"github.com/barkingdog-ai/sipgox"
 	"github.com/pion/rtp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -76,7 +76,7 @@ func main() {
 		buf := make([]byte, media.RTPBufSize)
 		for {
 			select {
-			case <-dialog.Done():
+			case <-dialog.Context().Done():
 				return
 			case <-time.After(200 * time.Millisecond):
 			}
@@ -134,7 +134,7 @@ func main() {
 			dialog.Hangup(ctx)
 			return
 
-		case <-dialog.Done():
+		case <-dialog.Context().Done():
 			return
 		}
 	}

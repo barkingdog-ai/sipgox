@@ -72,7 +72,7 @@ func (d *DialogServerSession) Refer(ctx context.Context, referTo sip.Uri) error 
 		}
 
 	case <-ctx.Done():
-		return tx.Cancel()
+		return tx.Err()
 	}
 
 	return d.Hangup(ctx)
