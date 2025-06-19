@@ -11,3 +11,4 @@
 /rtp_playout_buffer*
 /MEDIA_QUALITY.md
 /asterisk-sounds-wav
+*.envrc

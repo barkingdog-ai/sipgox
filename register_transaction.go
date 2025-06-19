@@ -109,7 +109,7 @@ func (p *RegisterTransaction) Register(ctx context.Context) error {
 		log.Info().Int("status", int(res.StatusCode)).Msg("Received status")
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != 200 && res.StatusCode != 100 {
 		return &RegisterResponseError{
 			RegisterReq: req,
 			RegisterRes: res,
@@ -199,7 +199,7 @@ func (t *RegisterTransaction) reregister(ctx context.Context, req *sip.Request) 
 		log.Info().Int("status", int(res.StatusCode)).Msg("Received status")
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != 200 && res.StatusCode != 100 {
 		return &RegisterResponseError{
 			RegisterReq: req,
 			RegisterRes: res,

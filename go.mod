@@ -1,8 +1,6 @@
 module github.com/barkingdog-ai/sipgox
 
-go 1.21
-
-toolchain go1.21.5
+go 1.23.8
 
 require (
 	github.com/emiago/media v0.1.1-0.20240619212740-bf8c5574162c
@@ -21,7 +19,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.14 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	golang.org/x/sys v0.24.0 // indirect
 )
