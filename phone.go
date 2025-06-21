@@ -931,7 +931,7 @@ func (p *Phone) answer(ansCtx context.Context, opts AnswerOptions) (*DialogServe
 			User: p.UA.Name(),
 		}
 		if opts.Expiry == 0 {
-			opts.Expiry = 600 // 註冊過期時間 2025-03-18 Jacksu
+			opts.Expiry = 1800 // 註冊過期時間預設為1800秒 (30分鐘)
 		}
 
 		regTr, err := p.register(ctx, client, registerURI, contactHdr, RegisterOptions{

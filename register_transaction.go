@@ -10,6 +10,7 @@ import (
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type RegisterTransaction struct {
@@ -54,17 +55,25 @@ func (p *RegisterTransaction) Register(ctx context.Context) error {
 	req := p.Origin
 	contact := *req.Contact().Clone()
 
+	// 為交易設定更長的超時時間，避免過早超時
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// Send request and parse response
 	// req.SetDestination(*dst)
 	log.Info().Str("uri", req.Recipient.String()).Int("expiry", int(expiry)).Msg("sending request")
-	tx, err := client.TransactionRequest(ctx, req)
+	tx, err := client.TransactionRequest(ctxWithTimeout, req)
 	if err != nil {
 		return fmt.Errorf("fail to create transaction req=%q: %w", req.StartLine(), err)
 	}
 	defer tx.Terminate()
 
-	res, err := getResponse(ctx, tx)
+	res, err := getResponse(ctxWithTimeout, tx)
 	if err != nil {
+		// 提供更詳細的錯誤資訊
+		if err.Error() == "transaction died" {
+			return fmt.Errorf("SIP 伺服器沒有回應 REGISTER 請求，請檢查: 1) 伺服器是否運行在 %s 2) 網路連通性 3) 防火牆設定。原始錯誤: %w", req.Recipient.String(), err)
+		}
 		return fmt.Errorf("fail to get response req=%q : %w", req.StartLine(), err)
 	}
 
@@ -92,7 +101,7 @@ func (p *RegisterTransaction) Register(ctx context.Context) error {
 	if res.StatusCode == sip.StatusUnauthorized || res.StatusCode == sip.StatusProxyAuthRequired {
 		tx.Terminate() //Terminate previous
 
-		log.Info().Msg("Unathorized. Doing digest auth")
+		log.Info().Msg("Unauthorized. Doing digest auth")
 		tx, err = client.DoDigestAuth(ctx, req, res, sipgo.DigestAuth{
 			Username: username,
 			Password: password,
@@ -128,15 +137,24 @@ func (t *RegisterTransaction) QualifyLoop(ctx context.Context) error {
 		expiry = 30
 	}
 
-	ticker := time.NewTicker(time.Duration(expiry) * time.Second)
+	// 在 expiry/2 時間重新註冊，確保註冊不會過期
+	refreshInterval := time.Duration(expiry/2) * time.Second
+	ticker := time.NewTicker(refreshInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C: // TODO make configurable
+		case <-ticker.C:
+			t.log.Info().
+				Int("expiry", expiry).
+				Dur("refresh_interval", refreshInterval).
+				Msg("執行定期註冊刷新")
 		}
 		err := t.qualify(ctx)
 		if err != nil {
+			t.log.Error().Err(err).Msg("註冊刷新失敗")
 			return err
 		}
 	}
@@ -161,6 +179,7 @@ func (t *RegisterTransaction) qualify(ctx context.Context) error {
 }
 
 func (t *RegisterTransaction) reregister(ctx context.Context, req *sip.Request) error {
+	log.Info().Msg("Reregistering")
 	// log := p.getLoggerCtx(ctx, "Register")
 	log := t.log
 	client := t.client
@@ -182,7 +201,7 @@ func (t *RegisterTransaction) reregister(ctx context.Context, req *sip.Request) 
 	log.Info().Int("status", int(res.StatusCode)).Msg("Received status")
 	if res.StatusCode == sip.StatusUnauthorized || res.StatusCode == sip.StatusProxyAuthRequired {
 		tx.Terminate() //Terminate previous
-		log.Info().Msg("Unathorized. Doing digest auth")
+		log.Info().Msg("Unauthorized. Doing digest auth")
 		tx, err = client.DoDigestAuth(ctx, req, res, sipgo.DigestAuth{
 			Username: username,
 			Password: password,

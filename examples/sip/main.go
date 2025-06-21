@@ -67,7 +67,7 @@ func main() {
 		Username:     username,
 		Password:     password,
 		RegisterAddr: serverIP + ":" + strconv.Itoa(serverPort), // 使用註冊地址自動處理註冊
-		Expiry:       3600,                                      // 註冊過期時間
+		Expiry:       1800,                                      // 註冊過期時間 (30分鐘)
 		Ringtime:     30 * time.Second,                          // 響鈴時間
 		OnCall: func(inviteRequest *sip.Request) int {
 			log.Info().

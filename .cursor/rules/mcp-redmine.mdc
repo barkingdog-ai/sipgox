@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 # Redmine MCP
 
-我要調用 `redmine` MCP 來操作這個專案的 Redmine, 能調用的 project 只限定 `AI電話客服` ，它的 project_id 是 `??`。
+我要調用 `redmine` MCP 來操作這個專案的 Redmine, 能調用的 project 只限定 `AI電話客服` ，它的 project_id 是 `61`。
 
 如果你創了一個 issue ，請在內文的最末尾使用 `---` 分隔線後註明，`此 issue 由 Cursor MCP Redmine 工具自動建立`
 

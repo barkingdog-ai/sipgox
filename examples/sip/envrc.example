@@ -1,0 +1,6 @@
+export SIP_SERVER_IP=
+export SIP_SERVER_PORT=5060
+export SIP_CLIENT_IP=
+export SIP_CLIENT_PORT=5060
+export SIP_USERNAME=
+export SIP_PASSWORD=
