@@ -1,0 +1,54 @@
+{
+  "mcpServers": {
+    "project-directory": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "mcp",
+        "--directory",
+        "專案的根目錄絕對路徑",
+        "python",
+        ".cursor/python-mcp/directory_mcp_server.py"
+      ]
+    },
+
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "專案的根目錄絕對路徑"]
+    },
+
+    "gitea": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITEA_HOST",
+        "-e",
+        "GITEA_ACCESS_TOKEN",
+        "docker.gitea.com/gitea-mcp-server"
+      ],
+      "env": {
+        "GITEA_HOST": "https://git.thebarkingdog.tw/",
+        "GITEA_ACCESS_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+
+    "redmine": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "mcp-redmine==2025.04.09.153531",
+        "--refresh-package",
+        "mcp-redmine",
+        "mcp-redmine"
+      ],
+      "env": {
+        "REDMINE_URL": "https://redmine.thebarkingdog.tw/",
+        "REDMINE_API_KEY": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}

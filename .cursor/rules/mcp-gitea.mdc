@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Gitea MCP
+
+我要調用 `gitea` MCP 來操作這個專案的 Gitea Repo, 能調用的 repo 只限定 `gopkg/sipgox` ，不要操作任何其他 repo。
+
+```json
+{
+    "owner": "gopkg",
+    "repo": "sipgox"
+}
+```
+
+## gitea issue created
+
+當你需要創建 issue 的時候，你需要先使用 [redmine.mdc](mdc:.cursor/rules/redmine.mdc) 創一個 issue, 並將被分派者設為我, 狀態設為 **Estimate**。
+然後將此連結寫入 gitea issue 內容，並將負責人也設為我。
+最後請在內文的最末尾使用 `---` 分隔線後註明，`此 issue 由 Cursor MCP Gitea 工具自動建立`
+
+當你創好 gitea issue 後，你應該在將 gitea 連結更新回 redmine 內，讓兩個 issue 達到雙向連結的效果。
+
+## gitea PR created
+
+創建一個 PR, 將目前分支合併到 `sipgox` 分支，如果使用者沒有提供 title, 請先向使用者詢問 PR title,
+然後根據 [PULL_REQUEST_TEMPLATE.md](mdc:.gitea/PULL_REQUEST_TEMPLATE.md) 來撰寫內容。
+你可以使用 `git` MCP 來取得 git 相關的資訊，`git` MCP 所需要的 `repo_path` 參數可以透過 `project-directory` MCP Server 取得。
+
+最後請在內文的最末尾使用 `---` 分隔線後註明，`此 PR 由 Cursor MCP Gitea 工具自動建立`
+
+## gitea issue resolved
+
+從我們給定的 issue 中取得 redmine 連結，並將該 [redmine.mdc](mdc:.cursor/rules/redmine.mdc) issue 設置為 **Reviewing**。
+並同時更新**被分配者**，如果使用者沒有提供**被分配者**，請先詢問使用者。
+
+然後參考 gitea PR created 的流程來創建 PR, 記得在內文保有 gitea 的 issue 編號，和 redmine 的連結。

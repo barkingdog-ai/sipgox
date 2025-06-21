@@ -1,0 +1,24 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Redmine MCP
+
+我要調用 `redmine` MCP 來操作這個專案的 Redmine, 能調用的 project 只限定 `AI電話客服` ，它的 project_id 是 `??`。
+
+如果你創了一個 issue ，請在內文的最末尾使用 `---` 分隔線後註明，`此 issue 由 Cursor MCP Redmine 工具自動建立`
+
+如果要取得 issue 連結,可以直接使用 `https://redmine.thebarkingdog.tw/issues/{id}`
+
+## Issue Statuses
+
+Status IDs identified in the system:
+
+- **Estimate** (ID: 2, is_closed: false)
+- **In Progress** (ID: 1, is_closed: false)
+- **Reviewing** (ID: 8, is_closed: false)
+- **Completed** (ID: 3, is_closed: true)
+- **Feedback** (ID: 9, is_closed: false)
+- **Closed** (ID: 10, is_closed: true)
+
