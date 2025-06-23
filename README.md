@@ -267,7 +267,7 @@ sudo tcpdump -i any -n port 5060 or port 5061 or port 5062
 
 ```bash
 # 即時分析 SIP 封包
-sudo tshark -i any -f "port 5060" -Y sip
+sudo tshark -i any -f "port 6060" -Y sip
 
 # 只顯示 SIP 方法 (REGISTER, INVITE, etc.)
 sudo tshark -i any -f "port 5060" -Y sip -T fields -e sip.Method -e sip.r-uri -e sip.from.user -e sip.to.user
@@ -297,7 +297,7 @@ sudo ngrep -i -q -P " " -W byline "REGISTER\|INVITE\|BYE" port 5060
 sudo tshark -i any -f "port 5060" -Y 'sip.from.user == "your_username" or sip.to.user == "your_username"'
 
 # 即時顯示 SIP 註冊狀態
-sudo tshark -i any -f "port 5060" -Y "sip.Method == REGISTER or sip.Status-Code" -T fields -e sip.Method -e sip.Status-Code -e sip.from.user
+sudo tshark -i any -f "port 6060" -Y "sip.Method == REGISTER or sip.Status-Code" -T fields -e sip.Method -e sip.Status-Code -e sip.from.user
 ```
 
 ### 實用的監控腳本
