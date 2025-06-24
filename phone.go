@@ -419,6 +419,171 @@ type DialogReferState struct {
 	Dialog *DialogClientSession
 }
 
+// RegisterAndDialParams 包含註冊和撥號所需的參數
+type RegisterAndDialParams struct {
+	ServerIP        string // SIP 伺服器 IP
+	ServerPort      int    // SIP 伺服器端口
+	ClientIP        string // 客戶端 IP
+	ClientPort      int    // 客戶端端口
+	CallerExtension string // 撥號方分機號碼
+	CalleeExtension string // 被叫方分機號碼
+	Password        string // SIP 密碼
+	RegisterExpiry  int    // 註冊過期時間（秒），預設3600
+	DialTimeout     int    // 撥號超時時間（秒），預設60
+}
+
+// RegisterAndDialResult 包含註冊和撥號的結果
+type RegisterAndDialResult struct {
+	Dialog *DialogClientSession // 撥號成功後的對話
+	Phone  *Phone               // 電話實例，需要在使用完畢後調用 Close()
+	Cancel context.CancelFunc   // 取消函數，用於停止註冊和清理資源
+}
+
+// RegisterAndDial 執行註冊和撥號的完整流程
+// 這個函數會先註冊到 SIP 伺服器，然後撥號到指定的號碼
+// 成功時返回 RegisterAndDialResult，失敗時返回錯誤
+func RegisterAndDial(ctx context.Context, params RegisterAndDialParams) (*RegisterAndDialResult, error) {
+	// 設定預設值
+	if params.RegisterExpiry == 0 {
+		params.RegisterExpiry = 3600
+	}
+	if params.DialTimeout == 0 {
+		params.DialTimeout = 60
+	}
+
+	log.Info().
+		Str("caller", params.CallerExtension).
+		Str("callee", params.CalleeExtension).
+		Str("server", fmt.Sprintf("%s:%d", params.ServerIP, params.ServerPort)).
+		Str("client", fmt.Sprintf("%s:%d", params.ClientIP, params.ClientPort)).
+		Msg("開始註冊並撥號")
+
+	// 建立 SIP User Agent
+	ua, err := sipgo.NewUA(
+		sipgo.WithUserAgent(params.CallerExtension),
+		sipgo.WithUserAgentHostname(params.ServerIP),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("建立 User Agent 失敗: %w", err)
+	}
+
+	// 建立電話實例
+	phone := NewPhone(ua,
+		WithPhoneLogger(log.Logger),
+		WithPhoneListenAddr(ListenAddr{
+			Network: "udp",
+			Addr:    fmt.Sprintf("%s:%d", params.ClientIP, params.ClientPort),
+		}),
+	)
+
+	// 建立帶有超時的上下文
+	mainCtx, cancel := context.WithTimeout(ctx, time.Duration(params.DialTimeout)*time.Second)
+
+	// === 第一步：執行註冊 ===
+	log.Info().Str("username", params.CallerExtension).Msg("開始註冊到 SIP 伺服器...")
+
+	registerURI := sip.Uri{
+		Host:    params.ServerIP,
+		Port:    params.ServerPort,
+		Headers: sip.HeaderParams{"transport": "udp"},
+	}
+
+	registerOpts := RegisterOptions{
+		Username: params.CallerExtension,
+		Password: params.Password,
+		Expiry:   params.RegisterExpiry,
+	}
+
+	// 在背景啟動註冊，保持註冊狀態
+	registerCtx, cancelRegister := context.WithCancel(mainCtx)
+	registerDone := make(chan error, 1)
+
+	go func() {
+		defer cancelRegister()
+		err := phone.Register(registerCtx, registerURI, registerOpts)
+		registerDone <- err
+	}()
+
+	// 等待初始註冊完成或超時
+	registerTimeout := time.NewTimer(5 * time.Second)
+	select {
+	case err := <-registerDone:
+		registerTimeout.Stop()
+		if err != nil {
+			cancel()
+			phone.Close()
+			return nil, fmt.Errorf("註冊失敗: %w", err)
+		}
+		log.Info().Msg("註冊成功")
+	case <-registerTimeout.C:
+		log.Info().Msg("註冊程序已在背景啟動，現在開始撥號")
+	case <-mainCtx.Done():
+		registerTimeout.Stop()
+		cancel()
+		phone.Close()
+		return nil, fmt.Errorf("註冊過程中被取消: %w", mainCtx.Err())
+	}
+
+	// === 第二步：執行撥號 ===
+	log.Info().Str("callee", params.CalleeExtension).Msg("開始撥號...")
+
+	recipient := sip.Uri{
+		User:    params.CalleeExtension,
+		Host:    params.ServerIP,
+		Port:    params.ServerPort,
+		Headers: sip.HeaderParams{"transport": "udp"},
+	}
+
+	dialOptions := DialOptions{
+		Username: params.CallerExtension,
+		Password: params.Password,
+		OnResponse: func(resp *sip.Response) {
+			log.Info().
+				Int("status", int(resp.StatusCode)).
+				Str("reason", resp.Reason).
+				Msg("收到撥號回應")
+		},
+	}
+
+	dialog, err := phone.Dial(mainCtx, recipient, dialOptions)
+	if err != nil {
+		cancel()
+		phone.Close()
+		return nil, fmt.Errorf("撥號失敗: %w", err)
+	}
+
+	if dialog == nil {
+		cancel()
+		phone.Close()
+		return nil, fmt.Errorf("撥號成功但沒有建立對話")
+	}
+
+	log.Info().Msg("註冊並撥號成功！通話已建立")
+
+	// 設定通話結束時的清理函數
+	cleanupFunc := func() {
+		if dialog != nil {
+			dialog.Close()
+		}
+		cancelRegister() // 停止註冊
+		phone.Close()
+		cancel()
+	}
+
+	// 監聽對話狀態，當對話結束時自動清理
+	go func() {
+		<-dialog.Context().Done()
+		log.Info().Msg("通話結束，開始清理資源")
+		cleanupFunc()
+	}()
+
+	return &RegisterAndDialResult{
+		Dialog: dialog,
+		Phone:  phone,
+		Cancel: cleanupFunc,
+	}, nil
+}
+
 // Dial creates dialog with recipient
 //
 // return DialResponseError in case non 200 responses
